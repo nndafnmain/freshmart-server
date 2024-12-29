@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "users" ALTER COLUMN "password" DROP NOT NULL,
+ALTER COLUMN "avatar" DROP NOT NULL,
+ALTER COLUMN "referralCode" DROP NOT NULL;
