@@ -20,19 +20,408 @@ enum Roles {
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
+  id           Int            @id @default(autoincrement())
   username     String
-  email        String   @unique
+  email        String         @unique
   password     String?
   avatar       String?
-  referralCode String?  @unique
-  role         Roles    @default(USER)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  referralCode String?        @unique
+  role         Roles          @default(USER)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  addresses    Address[]
+  StoreAdmin   StoreAdmin[]
+  carts        Cart[]
+  UserDiscount UserDiscount[]
+  UserVoucher  UserVoucher[]
+  Order        Order[]
 
   @@map("users")
 }
 
-Model City{
-id Int @id @id @default(autoincrement)
+model Province {
+  id           Int       @id @default(autoincrement())
+  provinceName String
+  cities       City[]
+  addresses    Address[]
+
+  @@map("provinces")
+}
+
+model City {
+  id           Int           @id @default(autoincrement())
+  cityName     String
+  postalCode   String
+  provinceId   Int
+  province     Province?     @relation(fields: [provinceId], references: [id])
+  subdistricts Subdistrict[]
+  addresses    Address[]
+  stores       Store[]
+
+  @@map("cities")
+}
+
+model Subdistrict {
+  id              Int       @id @default(autoincrement())
+  subdistrictName String
+  cityId          Int
+  city            City?     @relation(fields: [cityId], references: [id])
+  addresses       Address[]
+
+  @@map("subdistricts")
+}
+
+model Address {
+  id            Int         @id @default(autoincrement())
+  address       String
+  latitude      Float
+  longtitude    Float
+  isMain        Boolean     @default(false)
+  postalCode    Int?
+  userId        Int
+  cityId        Int
+  provinceId    Int
+  subdistrictId Int
+  province      Province    @relation(fields: [provinceId], references: [id])
+  city          City        @relation(fields: [cityId], references: [id])
+  subdistrict   Subdistrict @relation(fields: [subdistrictId], references: [id])
+  user          User        @relation(fields: [userId], references: [id])
+  Delivery      Delivery[]
+
+  @@map("addresses")
+}
+
+model StoreAdmin {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  store     Store?
+
+  @@map("store_admins")
+}
+
+model Store {
+  id             Int             @id @default(autoincrement())
+  storeName      String
+  latitude       Float
+  longtitude     Float
+  isMainStore    Boolean         @default(false)
+  qty            Int             @default(0)
+  cityId         Int
+  storeAdminId   Int             @unique
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  city           City            @relation(fields: [cityId], references: [id])
+  storeAdmin     StoreAdmin?     @relation(fields: [storeAdminId], references: [id])
+  carts          Cart[]
+  storeProducts  StoreProduct[]
+  StockJournals  StockJournal[]
+  journalDetails JournalDetail[]
+  discounts      Discount[]
+  Order          Order[]
+  Delivery       Delivery[]
+
+  @@map("stores")
+}
+
+model StoreProduct {
+  id        Int      @id @default(autoincrement())
+  qty       Int
+  productId Int
+  storeId   Int
+  store     Store    @relation(fields: [storeId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("store_products")
+}
+
+model Product {
+  id            Int                   @id @default(autoincrement())
+  productName   String
+  description   String
+  weight        Int
+  price         Int
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  productImages ProductImage[]
+  categories    CategoriesOnProduct[]
+  carts         Cart[]
+  storeProducts StoreProduct[]
+  StockJournal  StockJournal[]
+  Discount      Discount[]
+  Voucher       Voucher[]
+  OrderItems    OrderItems[]
+
+  @@map("products")
+}
+
+model ProductImage {
+  id        Int     @id @default(autoincrement())
+  imageUrl  String
+  productId Int
+  products  Product @relation(fields: [productId], references: [id])
+
+  @@map("product_images")
+}
+
+model Category {
+  id           Int                   @id @default(autoincrement())
+  categoryName String
+  products     CategoriesOnProduct[]
+
+  @@map("categories")
+}
+
+model CategoriesOnProduct {
+  productId  Int
+  categoryId Int
+  product    Product  @relation(fields: [productId], references: [id])
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  @@id([productId, categoryId])
+  @@map("categories_on_product")
+}
+
+model Cart {
+  id        Int     @id @default(autoincrement())
+  qty       Int
+  userId    Int
+  productId Int
+  storeId   Int
+  users     User    @relation(fields: [userId], references: [id])
+  products  Product @relation(fields: [productId], references: [id])
+  stores    Store   @relation(fields: [storeId], references: [id])
+
+  @@map("carts")
+}
+
+enum JournalType {
+  MUTATION @map("MUTATION")
+  INCREASE @map("INCREASE")
+  DECREASE @map("DECREASE")
+  PURCHASE @map("PURCHASE")
+  REFUND   @map("REFUND")
+}
+
+enum JournalStatus {
+  WAITING_ADMIN_CONFIRMATION @map("WAITING_ADMIN_CONFIRMATION")
+  SUCCESS                    @map("SUCCESS")
+  REJECTED                   @map("REJECTED")
+  ON_PROGRESS                @map("ON_PROGRESS")
+  AUTOMATED                  @map("AUTOMATED")
+}
+
+model StockJournal {
+  id            Int             @id @default(autoincrement())
+  productId     Int
+  qty           Int
+  type          String?
+  status        String
+  storeId       Int
+  fromStoreId   Int
+  toStoreId     Int
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  products      Product         @relation(fields: [productId], references: [id])
+  stores        Store           @relation(fields: [storeId], references: [id])
+  journalDetail JournalDetail[]
+
+  @@map("stock_journals")
+}
+
+model JournalDetail {
+  id             Int          @id @default(autoincrement())
+  stockJournalId Int
+  toStoreId      Int
+  stockJournal   StockJournal @relation(fields: [stockJournalId], references: [id])
+  store          Store        @relation(fields: [toStoreId], references: [id])
+
+  @@map("journal_details")
+}
+
+enum DiscountType {
+  PRODUCT
+  BUY_ONE_GET_ONE
+  MINIMAL_PURCHASE
+}
+
+model Discount {
+  id              Int          @id @default(autoincrement())
+  title           String
+  description     String
+  type            DiscountType
+  value           Float
+  limit           Float
+  minimalPurchase Float?
+  isActive        Boolean?     @default(true)
+
+  storeId   Int
+  productId Int
+
+  store        Store          @relation(fields: [storeId], references: [id])
+  product      Product        @relation(fields: [productId], references: [id])
+  userDiscount UserDiscount[]
+  Order        Order[]
+
+  @@map("discounts")
+}
+
+model UserDiscount {
+  id          Int          @id @default(autoincrement())
+  userId      Int
+  discountId  Int
+  alreadyUsed Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  user        User         @relation(fields: [userId], references: [id])
+  discount    Discount     @relation(fields: [discountId], references: [id])
+  OrderItems  OrderItems[]
+
+  @@map("user_discounts")
+}
+
+enum VoucherType {
+  PRODUCT
+  DELIVERY
+  PURCHASE
+}
+
+model Voucher {
+  id          Int           @id @default(autoincrement())
+  code        String
+  description String
+  type        VoucherType
+  value       Int
+  expiredDate DateTime
+  productId   Int?
+  products    Product?      @relation(fields: [productId], references: [id])
+  UserVoucher UserVoucher[]
+  Order       Order[]
+
+  @@map("vouchers")
+}
+
+model UserVoucher {
+  id          Int          @id @default(autoincrement())
+  alreadyUsed Boolean      @default(false)
+  voucherId   Int
+  userId      Int
+  vouchers    Voucher      @relation(fields: [voucherId], references: [id])
+  users       User         @relation(fields: [userId], references: [id])
+  orderItems  OrderItems[]
+
+  @@map("user_vouchers")
+}
+
+enum OrderStatus {
+  WAITING_FOR_PAYMENT        @map("WAITING_FOR_PAYMENT")
+  WAITING_ADMIN_CONFIRMATION @map("WAITING_ADMIN_CONFIRMATION")
+  ORDER_PROCESSED            @map("ORDER_PROCESSED")
+  ORDER_SHIPPED              @map("ORDER_SHIPPED")
+  ORDER_RECEIVED             @map("ORDER_RECEIVED")
+  ORDER_CANCELLED            @map("ORDER_CANCELLED")
+}
+
+model Order {
+  id             Int         @id @default(autoincrement())
+  orderCode      String
+  totalPrice     Int
+  totalWeight    Int
+  status         OrderStatus @default(WAITING_FOR_PAYMENT)
+  userId         Int
+  storeId        Int
+  userVoucherId  Int?
+  userDiscountId Int?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  users      User         @relation(fields: [userId], references: [id])
+  stores     Store        @relation(fields: [storeId], references: [id])
+  vouchers   Voucher?     @relation(fields: [userVoucherId], references: [id])
+  discounts  Discount?    @relation(fields: [userDiscountId], references: [id])
+  orderItems OrderItems[]
+  Payment    Payment[]
+  Delivery   Delivery[]
+
+  @@map("orders")
+}
+
+model OrderItems {
+  id             Int           @id @default(autoincrement())
+  quantity       Int
+  total          Int
+  discValue      Int
+  originalPrice  Int
+  totalWeight    Int?
+  orderId        Int
+  productId      Int
+  userDiscountId Int?
+  userVoucherId  Int?
+  orders         Order         @relation(fields: [orderId], references: [id])
+  products       Product       @relation(fields: [productId], references: [id])
+  userDiscounts  UserDiscount? @relation(fields: [userDiscountId], references: [id])
+  userVouchers   UserVoucher?  @relation(fields: [userVoucherId], references: [id])
+
+  @@map("order_items")
+}
+
+enum PaymentStatus {
+  COMPLETED @map("COMPLETED")
+  CANCELLED @map("CANCELLED")
+  DENIED    @map("DENIED")
+  EXPIRED   @map("EXPIRED")
+  PENDING   @map("PENDING")
+}
+
+enum PaymentMethod {
+  QRIS            @map("QRIS")
+  VIRTUAL_ACCOUNT @map("VIRTUAL_ACCOUNT")
+  MANUAL_TRANSFER @map("MANUAL_TRANSFER")
+}
+
+model Payment {
+  id              Int           @id @default(autoincrement())
+  invoiceCode     String
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentMethod   PaymentMethod
+  orderId         Int           @unique
+  amount          Int
+  paymentProof    String?
+  snapToken       String?
+  snapRedirectUrl String?
+
+  orders Order @relation(fields: [orderId], references: [id])
+
+  @@map("payments")
+}
+
+enum DeliveryStatus {
+  PENDING     @map("PENDING")
+  CANCELLED   @map("CANCELLED")
+  ON_DELIVERY @map("ON_DELIVERY")
+  DELIVERED   @map("DELIVERED")
+}
+
+model Delivery {
+  id              Int            @id @default(autoincrement())
+  deliveryCode    String
+  deliveryFee     Int
+  status          DeliveryStatus @default(PENDING)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  deliveryService String?
+  deliveryCourier String?
+  addressId       Int
+  storeId         Int
+  orderId         Int
+
+  stores    Store   @relation(fields: [storeId], references: [id])
+  addresses Address @relation(fields: [addressId], references: [id])
+  orders    Order   @relation(fields: [orderId], references: [id])
+
+  @@map("deliveries")
 }
